@@ -25,6 +25,7 @@ $acls = [
         ]
     ]
 ];
+# $acls_monitoring = ['IP monitoring server'];
 $acls_monitoring = [];
 
 # "cannot create 'ztank/encrypted': Raw key too long (expected 32)."
@@ -36,7 +37,7 @@ $secret_length = 64;
 
 define('__ROOT__', dirname(__FILE__));
 if (file_exists(__ROOT__.'/acls.inc')) {
-    error_log("keys.php: loading ".__ROOT__."/acls.inc", 0);
+    // error_log("keys.php: loading ".__ROOT__."/acls.inc", 0);
     require_once(__ROOT__.'/acls.inc');
 }
 
@@ -49,13 +50,13 @@ if (!empty($_SERVER['HTTP_USER_AGENT'])) {
 } else {
     $ua = '';
 }
-if(!isset($acls[$ip])){
+if(in_array($ip, $acls_monitoring)){
+    // error_log("keys.php: 200: Monitoring IP $ip (ua: $ua)", 0);
+    header($protocol.' 200 ');
+    die();
+} elseif(!isset($acls[$ip])){
     error_log("keys.php: 403 Forbidden: IP $ip (ua: $ua)", 0);
     header($protocol.' 403 Forbidden');
-    die();
-} else if(!isset($acls_monitoring[$ip])){
-    error_log("keys.php: 200: Monitoring IP $ip (ua: $ua)", 0);
-    header($protocol.' 200 ');
     die();
 } else {
     // alternate

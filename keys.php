@@ -28,11 +28,11 @@ $acls = [
 # $acls_monitoring = ['IP monitoring server'];
 $acls_monitoring = [];
 
-# "cannot create 'ztank/encrypted': Raw key too long (expected 32)."
-# https://github.com/openzfs/zfs/issues/6556
-# https://arstechnica.com/gadgets/2021/06/a-quick-start-guide-to-openzfs-native-encryption/
-# Keyformat can be either passphrase, hex, or raw. Passphrases must be between 8 and 512 bytes long, while both hex and raw keys must be precisely 32 bytes long.
-# => ensure to use passphrase
+// "cannot create 'ztank/encrypted': Raw key too long (expected 32)."
+// https://github.com/openzfs/zfs/issues/6556
+// https://arstechnica.com/gadgets/2021/06/a-quick-start-guide-to-openzfs-native-encryption/
+// Keyformat can be either passphrase, hex, or raw. Passphrases must be between 8 and 512 bytes long, while both hex and raw keys must be precisely 32 bytes long.
+// => ensure to use passphrase
 $secret_length = 64;
 
 define('__ROOT__', dirname(__FILE__));

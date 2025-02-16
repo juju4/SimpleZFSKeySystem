@@ -44,11 +44,9 @@ if (file_exists(__ROOT__.'/acls.inc')) {
 $protocol = $_SERVER['SERVER_PROTOCOL'];
 $ip = $_SERVER['REMOTE_ADDR'];
 // filter by ua too? no, zfs itself has empty ua.
-//$ua = filter_var($_SERVER['HTTP_USER_AGENT'], FILTER_FLAG_STRIP_HIGH);
+$ua = '';
 if (!empty($_SERVER['HTTP_USER_AGENT'])) {
     $ua = $_SERVER['HTTP_USER_AGENT'];
-} else {
-    $ua = '';
 }
 if(in_array($ip, $acls_monitoring)){
     // error_log("keys.php: 200: Monitoring IP $ip (ua: $ua)", 0);
@@ -60,20 +58,17 @@ if(in_array($ip, $acls_monitoring)){
     die();
 } else {
     // alternate
+    $machineID = '';
     if (!empty($_GET['machine'])) {
         $machineID = filter_var($_GET['machine'], FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-    } else {
-	$machineID = '';
     }
+    $poolID = '';
     if (!empty($_GET['guid'])) {
         $poolID = filter_var($_GET['guid'], FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-    } else {
-	$poolID = '';
     }
+    $name = '';
     if (!empty($_GET['name'])) {
         $name = filter_var($_GET['name'], FILTER_SANITIZE_NUMBER_INT);
-    } else {
-	$name = '';
     }
     if(isset($acls[$ip][$machineID]) && in_array($poolID, $acls[$ip][$machineID])){
         $machine = R::findOne('machine', ' guid = ? ', [$machineID]);

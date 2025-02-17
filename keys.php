@@ -5,7 +5,7 @@
  *
  * @see https://github.com/chani/SimpleZFSKeySystem
  * @see https://blog.jeanbruenn.info/2023/11/11/encryption-of-zfs-volumes-using-a-remote-external-key-system-written-in-php/
- * @author Jean Bruenn <himself@jeanbruenn.info> 
+ * @author Jean Bruenn <himself@jeanbruenn.info>
  */
 include('rb-sqlite.php');
 R::setup('sqlite:.data/keys.db');
@@ -25,23 +25,51 @@ $acls = [
         ]
     ]
 ];
+# $acls_monitoring = ['IP monitoring server'];
+$acls_monitoring = [];
 
-function fa($string){
-  $string = preg_replace('([^a-zA-Z0-9-])', '', $string);
-  return $string;
+// "cannot create 'ztank/encrypted': Raw key too long (expected 32)."
+// https://github.com/openzfs/zfs/issues/6556
+// https://arstechnica.com/gadgets/2021/06/a-quick-start-guide-to-openzfs-native-encryption/
+// Keyformat can be either passphrase, hex, or raw. Passphrases must be between 8 and 512 bytes long, while both hex and raw keys must be precisely 32 bytes long.
+// => ensure to use passphrase
+$secret_length = 64;
+
+define('__ROOT__', dirname(__FILE__));
+if (file_exists(__ROOT__.'/acls.inc')) {
+    // error_log("keys.php: loading ".__ROOT__."/acls.inc", 0);
+    require_once(__ROOT__.'/acls.inc');
 }
 
 $protocol = $_SERVER['SERVER_PROTOCOL'];
 $ip = $_SERVER['REMOTE_ADDR'];
-if(!isset($acls[$ip])){
+// filter by ua too? no, zfs itself has empty ua.
+$ua = '';
+if (!empty($_SERVER['HTTP_USER_AGENT'])) {
+    $ua = $_SERVER['HTTP_USER_AGENT'];
+}
+if(in_array($ip, $acls_monitoring)){
+    // error_log("keys.php: 200: Monitoring IP $ip (ua: $ua)", 0);
+    header($protocol.' 200 ');
+    die();
+} elseif(!isset($acls[$ip])){
+    error_log("keys.php: 403 Forbidden: IP $ip (ua: $ua)", 0);
     header($protocol.' 403 Forbidden');
     die();
 } else {
-    $request = filter_var(substr($_SERVER['REQUEST_URI'], 1), FILTER_SANITIZE_URL);
-    $req = preg_split('_/_', $request);
-    $machineID = fa($req[0]);
-    $poolID = fa($req[1]);
-    $name = fa($req[2]);
+    // alternate
+    $machineID = '';
+    if (!empty($_GET['machine'])) {
+        $machineID = filter_var($_GET['machine'], FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    }
+    $poolID = '';
+    if (!empty($_GET['guid'])) {
+        $poolID = filter_var($_GET['guid'], FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    }
+    $name = '';
+    if (!empty($_GET['name'])) {
+        $name = filter_var($_GET['name'], FILTER_SANITIZE_NUMBER_INT);
+    }
     if(isset($acls[$ip][$machineID]) && in_array($poolID, $acls[$ip][$machineID])){
         $machine = R::findOne('machine', ' guid = ? ', [$machineID]);
         if(is_null($machine)){
@@ -61,7 +89,10 @@ if(!isset($acls[$ip])){
 
         $key = R::findOne('key', ' name = ? AND machine = ? AND pool = ? ', [ $name, $machine->guid, $pool->guid ]);
         if(is_null($key)){
-            $keyvalue = bin2hex(openssl_random_pseudo_bytes(16));
+            $keyvalue = bin2hex(openssl_random_pseudo_bytes($secret_length, $strong_result));
+            if (!$strong_result) {
+                error_log("keys.php: Warning! openssl_random_pseudo_bytes() did not use a cryptographically strong algorithm.", 0);
+            }
             $key = R::dispense('key');
             $key->keyvalue = $keyvalue;
             $key->name = $name;
@@ -74,10 +105,12 @@ if(!isset($acls[$ip])){
         if($key->active == true){
             die($key->keyvalue);
         } else {
+            error_log("keys.php: 403 Forbidden: key not active for IP $ip, machine-id $machineID, pool $poolID, name $name (ua: $ua)", 0);
             header($protocol.' 403 Forbidden');
             die();
         }
     } else {
+        error_log("keys.php: 403 Forbidden: not matching acls for IP $ip, machine-id $machineID, pool $poolID, name $name (ua: $ua)", 0);
         header($protocol.' 403 Forbidden');
         die();
     }
